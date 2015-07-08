@@ -376,10 +376,17 @@ bool D3DApp::InitDirect3D()
     createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
+	/////////added by kk/////////////
+ 	std::vector <IDXGIAdapter*> mAdapters;
+ 	mAdapters = EnumerateAdapters();
+	/////////////////////////////////md3dDriverType
+
+
+
 	D3D_FEATURE_LEVEL featureLevel;
 	HRESULT hr = D3D11CreateDevice(
-			0,                 // default adapter
-			md3dDriverType,
+			mAdapters[1],                 // default adapter
+			D3D_DRIVER_TYPE_UNKNOWN ,
 			0,                 // no software device
 			createDeviceFlags, 
 			0, 0,              // default feature level array
@@ -467,6 +474,36 @@ bool D3DApp::InitDirect3D()
 
 	return true;
 }
+///added by kk/////
+std::vector <IDXGIAdapter*> D3DApp::EnumerateAdapters(void)
+{
+	IDXGIAdapter * pAdapter;
+	std::vector <IDXGIAdapter*> vAdapters;
+	IDXGIFactory* pFactory = NULL;
+
+
+	// Create a DXGIFactory object.
+	if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory)))
+	{
+		return vAdapters;
+	}
+
+
+	for (UINT i = 0;pFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND;		++i)
+	{
+		vAdapters.push_back(pAdapter);
+	}
+
+
+	if (pFactory)
+	{
+		pFactory->Release();
+	}
+
+	return vAdapters;
+
+}
+///////////////////
 
 void D3DApp::CalculateFrameStats()
 {

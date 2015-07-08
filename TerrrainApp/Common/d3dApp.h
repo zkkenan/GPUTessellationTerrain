@@ -41,11 +41,17 @@ public:
 	virtual void OnMouseUp(WPARAM btnState, int x, int y)  { }
 	virtual void OnMouseMove(WPARAM btnState, int x, int y){ }
 
+
+
+
 protected:
 	bool InitMainWindow();
 	bool InitDirect3D();
 
 	void CalculateFrameStats();
+	////added by kk///
+	std::vector <IDXGIAdapter*> EnumerateAdapters(void);
+	//////////////////
 
 protected:
 

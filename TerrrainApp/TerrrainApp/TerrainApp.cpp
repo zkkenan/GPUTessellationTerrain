@@ -72,6 +72,10 @@ public://0705 add
 	//0706
 	Camera mCam;
 
+	//0708 enumerate adapter
+
+	void EnumerateAdapter();
+
 
 private:
 	ID3D11Buffer* mVB;
@@ -168,6 +172,8 @@ bool TerrainApp::Init()
 	BuildGeometryBuffers();
 	BuildFX();
 	BuildVertexLayout();
+	//0708
+	EnumerateAdapter();
 
 	D3D11_RASTERIZER_DESC wireframeDesc;
 	ZeroMemory(&wireframeDesc, sizeof(D3D11_RASTERIZER_DESC));
@@ -708,3 +714,34 @@ void TerrainApp::BuildHeightMapSRV()
 	// SRV saves reference.
 	ReleaseCOM(hmapTex);
 }
+
+void TerrainApp::EnumerateAdapter()
+{
+	IDXGIAdapter * pAdapter;
+	std::vector <IDXGIAdapter*> vAdapters;
+	IDXGIFactory* pFactory = NULL;
+
+
+	// Create a DXGIFactory object.
+	if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory)))
+	{
+		//return vAdapters;
+	}
+
+
+	for (UINT i = 0;
+		pFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND;
+		++i)
+	{
+		vAdapters.push_back(pAdapter);
+	}
+
+
+	if (pFactory)
+	{
+		pFactory->Release();
+	}
+}
+
+
+
