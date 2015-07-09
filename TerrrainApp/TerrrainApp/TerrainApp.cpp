@@ -76,6 +76,8 @@ public://0705 add
 
 	void EnumerateAdapter();
 
+	//0709
+	bool mBeCorrect;
 
 private:
 	ID3D11Buffer* mVB;
@@ -139,10 +141,10 @@ TerrainApp::TerrainApp(HINSTANCE hInstance)
 	XMStoreFloat4x4(&mSkullWorld, T);
 	///////////////
 
-	mHeightMapInfo.HeightMapFileName = L"Textures/terrain.raw";
+	mHeightMapInfo.HeightMapFileName = L"Textures/terrain2.raw";
 	mHeightMapInfo.HeightmapHeight = 2049;
 	mHeightMapInfo.HeightmapWidth = 2049;
-	mHeightMapInfo.HeightScale = 50.0f;
+	mHeightMapInfo.HeightScale = 200.0f;
 	mHeightMapInfo.CellSpacing = 1.0f;
 	mNumPatchVertRows = ((mHeightMapInfo.HeightmapHeight - 1) / CellNumPerRowOfPatch) + 1;
 	mNumPatchVertCols = ((mHeightMapInfo.HeightmapWidth - 1) / CellNumPerRowOfPatch) + 1;
@@ -151,6 +153,8 @@ TerrainApp::TerrainApp(HINSTANCE hInstance)
 
 	//0706
 	mCam.SetPosition(0, 20, 0);
+	//0709
+	mBeCorrect = false;
 }
 
 TerrainApp::~TerrainApp()
@@ -173,12 +177,12 @@ bool TerrainApp::Init()
 	BuildFX();
 	BuildVertexLayout();
 	//0708
-	EnumerateAdapter();
+	//EnumerateAdapter();
 
 	D3D11_RASTERIZER_DESC wireframeDesc;
 	ZeroMemory(&wireframeDesc, sizeof(D3D11_RASTERIZER_DESC));
 	wireframeDesc.FillMode = D3D11_FILL_WIREFRAME;
-	wireframeDesc.CullMode = D3D11_CULL_NONE;
+	wireframeDesc.CullMode = D3D11_CULL_FRONT;
 	wireframeDesc.FrontCounterClockwise = false;
 	wireframeDesc.DepthClipEnable = true;
 
@@ -227,6 +231,12 @@ void TerrainApp::UpdateScene(float dt)
 		mCam.Strafe(100.0f*dt);
 
 	mCam.UpdateViewMatrix();
+
+	//0709
+	if (GetAsyncKeyState('C') & 0x8000)
+		mBeCorrect = true;
+	if (GetAsyncKeyState('X') & 0x8000)
+		mBeCorrect = false;
 }
 
 void TerrainApp::DrawScene()
@@ -267,6 +277,7 @@ void TerrainApp::DrawScene()
 	mMinTesselltion->SetFloat(1);
 	mMaxTesselltion->SetFloat(6);
 	mSqrtNumPatch->SetInt(mNumPatchVertRows - 1);
+	mIsApplyCorrect->SetBool(mBeCorrect);
 
 
 	D3DX11_TECHNIQUE_DESC techDesc;
@@ -631,7 +642,7 @@ void TerrainApp::BuildFX()
 	mMaxDistance = mFX->GetVariableByName("maxDistance")->AsScalar();
 	mMinTesselltion = mFX->GetVariableByName("minTessExp")->AsScalar();
 	mMaxTesselltion = mFX->GetVariableByName("maxTessExp")->AsScalar();
-	/*mIsApplyCorrect = mFX->GetVariableByName("applyCorrection")->AsScalar();*/
+	mIsApplyCorrect = mFX->GetVariableByName("applyCorrection")->AsScalar();
 	mSqrtNumPatch = mFX->GetVariableByName("sqrtNumPatch")->AsScalar();
 	mTextSize = mFX->GetVariableByName("textSize")->AsScalar();
 

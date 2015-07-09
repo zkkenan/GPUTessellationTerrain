@@ -22,6 +22,7 @@ float maxDistance;
 float minTessExp;
 float maxTessExp;
 int   sqrtNumPatch;
+bool applyCorrection;
 
 
 cbuffer cbPerObject
@@ -56,24 +57,24 @@ VSOut VS(VertexIn vin)
 
 	float increment = sizeTerrain / sqrtNumPatch;
 	float2 coord = float2(vin.Pos.x, vin.Pos.z);
-		float2 coord0 = float2(vin.Pos.x, vin.Pos.z + increment);
-		float2 coord1 = float2(vin.Pos.x + increment, vin.Pos.z);
-		float2 coord2 = float2(vin.Pos.x, vin.Pos.z - increment);
-		float2 coord3 = float2(vin.Pos.x - increment, vin.Pos.z);
+	float2 coord0 = float2(vin.Pos.x, vin.Pos.z + increment);
+	float2 coord1 = float2(vin.Pos.x + increment, vin.Pos.z);
+	float2 coord2 = float2(vin.Pos.x, vin.Pos.z - increment);
+	float2 coord3 = float2(vin.Pos.x - increment, vin.Pos.z);
 
-		float height = terrainHeightMap.SampleLevel(linearSampler, coord / sizeTerrain, 0).x * heightMultiplier;
+	float height = terrainHeightMap.SampleLevel(linearSampler, coord / sizeTerrain, 0).x * heightMultiplier;
 	float height0 = terrainHeightMap.SampleLevel(linearSampler, (coord0 / sizeTerrain), 0).x * heightMultiplier;
 	float height1 = terrainHeightMap.SampleLevel(linearSampler, (coord1 / sizeTerrain), 0).x * heightMultiplier;
 	float height2 = terrainHeightMap.SampleLevel(linearSampler, (coord2 / sizeTerrain), 0).x * heightMultiplier;
 	float height3 = terrainHeightMap.SampleLevel(linearSampler, (coord3 / sizeTerrain), 0).x * heightMultiplier;
 
 	float3 pos = float3(coord.x, height, coord.y);
-		float3 pos0 = float3(coord0.x, height0, coord0.y);
-		float3 pos1 = float3(coord1.x, height1, coord1.y);
-		float3 pos2 = float3(coord2.x, height2, coord2.y);
-		float3 pos3 = float3(coord3.x, height3, coord3.y);
+	float3 pos0 = float3(coord0.x, height0, coord0.y);
+	float3 pos1 = float3(coord1.x, height1, coord1.y);
+	float3 pos2 = float3(coord2.x, height2, coord2.y);
+	float3 pos3 = float3(coord3.x, height3, coord3.y);
 
-		vout.vVec0 = normalize(pos0 - pos);
+	vout.vVec0 = normalize(pos0 - pos);
 	vout.vVec1 = normalize(pos1 - pos);
 	vout.vVec2 = normalize(pos2 - pos);
 	vout.vVec3 = normalize(pos3 - pos);
@@ -91,6 +92,7 @@ struct HS_CONSTANT_DATA_OUTPUT
 	float Edges[4] : SV_TessFactor;
 	float Inside[2] : SV_InsideTessFactor;
 	float mipLevel[4] : MIPLEVELVERTEXS;
+	float4 color : COLOR;
 };
 struct HS_OUTPUT
 {
@@ -102,19 +104,62 @@ HS_CONSTANT_DATA_OUTPUT TerrainConstantHS(InputPatch<VSOut, 4> ip, uint PatchID 
 	HS_CONSTANT_DATA_OUTPUT Output;
 
 	float3 middlePoint = (ip[0].PosH + ip[1].PosH + ip[2].PosH + ip[3].PosH) / 4;
-		float3 middlePointEdge0 = (ip[0].PosH + ip[1].PosH) / 2;
-		float3 middlePointEdge1 = (ip[3].PosH + ip[0].PosH) / 2;
-		float3 middlePointEdge2 = (ip[2].PosH + ip[3].PosH) / 2;
-		float3 middlePointEdge3 = (ip[1].PosH + ip[2].PosH) / 2;
+	float3 middlePointEdge0 = (ip[0].PosH + ip[1].PosH) / 2;
+	float3 middlePointEdge1 = (ip[3].PosH + ip[0].PosH) / 2;
+	float3 middlePointEdge2 = (ip[2].PosH + ip[3].PosH) / 2;
+	float3 middlePointEdge3 = (ip[1].PosH + ip[2].PosH) / 2;
 
-		float2 correctionInside = float2(1, 1);
-		float4 correctionEdges = float4(1, 1, 1, 1);
-		float4 correctionVertexs = float4(1, 1, 1, 1);
+	float2 correctionInside = float2(1, 1);
+	float4 correctionEdges = float4(1, 1, 1, 1);
+	float4 correctionVertexs = float4(1, 1, 1, 1);
 
-		//if (applyCorrection)
+		//if Correction
+		if (applyCorrection)
+		{
+			//
+
+			float3 insideDirection0 = normalize(middlePointEdge0 - middlePointEdge2);
+			float3 insideDirection1 = normalize(middlePointEdge1 - middlePointEdge3);
+			float3 edgeDirection0 = normalize(ip[0].PosH - ip[1].PosH);
+			float3 edgeDirection1 = normalize(ip[3].PosH - ip[0].PosH);
+			float3 edgeDirection2 = normalize(ip[2].PosH - ip[3].PosH);
+			float3 edgeDirection3 = normalize(ip[1].PosH - ip[2].PosH);
+
+			float3 toCameraMiddle = normalize(eyePosition - middlePoint);
+			float3 toCameraEdge0 = normalize(eyePosition - middlePointEdge0);
+			float3 toCameraEdge1 = normalize(eyePosition - middlePointEdge1);
+			float3 toCameraEdge2 = normalize(eyePosition - middlePointEdge2);
+			float3 toCameraEdge3 = normalize(eyePosition - middlePointEdge3);
+
+			float rank = 0.4;
+			float shift = 1 - rank / 2;
+			correctionInside.x = ((1.57 - acos(abs(dot(toCameraMiddle, insideDirection0)))) / 1.57) * rank + shift;
+			correctionInside.y = ((1.57 - acos(abs(dot(toCameraMiddle, insideDirection1)))) / 1.57) * rank + shift;
+
+			correctionEdges.x = ((1.57 - acos(abs((dot(toCameraEdge0, edgeDirection0))))) / 1.57) * rank + shift;
+			correctionEdges.y = ((1.57 - acos(abs((dot(toCameraEdge1, edgeDirection1))))) / 1.57) * rank + shift;
+			correctionEdges.z = ((1.57 - acos(abs((dot(toCameraEdge2, edgeDirection2))))) / 1.57) * rank + shift;
+			correctionEdges.w = ((1.57 - acos(abs((dot(toCameraEdge3, edgeDirection3))))) / 1.57) * rank + shift;
+
+			float3 toCameraVertex0 = normalize(eyePosition - ip[0].PosH);
+			float3 toCameraVertex1 = normalize(eyePosition - ip[1].PosH);
+			float3 toCameraVertex2 = normalize(eyePosition - ip[2].PosH);
+			float3 toCameraVertex3 = normalize(eyePosition - ip[3].PosH);
+
+			float angle0 = (acos(abs(dot(toCameraVertex0, ip[0].vVec0))) + acos(abs(dot(toCameraVertex0, ip[0].vVec1))) + acos(abs(dot(toCameraVertex0, ip[0].vVec2))) + acos(abs(dot(toCameraVertex0, ip[0].vVec3)))) / 4;
+			float angle1 = (acos(abs(dot(toCameraVertex1, ip[1].vVec0))) + acos(abs(dot(toCameraVertex1, ip[1].vVec1))) + acos(abs(dot(toCameraVertex1, ip[1].vVec2))) + acos(abs(dot(toCameraVertex1, ip[1].vVec3)))) / 4;
+			float angle2 = (acos(abs(dot(toCameraVertex2, ip[2].vVec0))) + acos(abs(dot(toCameraVertex2, ip[2].vVec1))) + acos(abs(dot(toCameraVertex2, ip[2].vVec2))) + acos(abs(dot(toCameraVertex2, ip[2].vVec3)))) / 4;
+			float angle3 = (acos(abs(dot(toCameraVertex3, ip[3].vVec0))) + acos(abs(dot(toCameraVertex3, ip[3].vVec1))) + acos(abs(dot(toCameraVertex3, ip[3].vVec2))) + acos(abs(dot(toCameraVertex3, ip[3].vVec3)))) / 4;
+
+			correctionVertexs.x = (1 - ((1.57 - angle0) / 1.57)) * rank + shift;
+			correctionVertexs.y = (1 - ((1.57 - angle1) / 1.57)) * rank + shift;
+			correctionVertexs.z = (1 - ((1.57 - angle2) / 1.57)) * rank + shift;
+			correctionVertexs.w = (1 - ((1.57 - angle3) / 1.57)) * rank + shift;
+
+		}
 
 
-		float4 magnitudeVertexs;
+	float4 magnitudeVertexs;
 	magnitudeVertexs.x = clamp(distance(ip[0].PosH, eyePosition), minDistance, maxDistance);
 	magnitudeVertexs.y = clamp(distance(ip[1].PosH, eyePosition), minDistance, maxDistance);
 	magnitudeVertexs.z = clamp(distance(ip[2].PosH, eyePosition), minDistance, maxDistance);
@@ -135,7 +180,7 @@ HS_CONSTANT_DATA_OUTPUT TerrainConstantHS(InputPatch<VSOut, 4> ip, uint PatchID 
 		//float factorZ = clamp(((magnitudeVertexs.z - minDistance) / diffDistance), 0, 1);
 		//float factorW = clamp(((magnitudeVertexs.w - minDistance) / diffDistance), 0, 1);
 
-		Output.mipLevel[0] = lerp(minMipmapLevel, maxMipmapLevel, factorVertexs.x);
+	Output.mipLevel[0] = lerp(minMipmapLevel, maxMipmapLevel, factorVertexs.x);
 	Output.mipLevel[1] = lerp(minMipmapLevel, maxMipmapLevel, factorVertexs.y);
 	Output.mipLevel[2] = lerp(minMipmapLevel, maxMipmapLevel, factorVertexs.z);
 	Output.mipLevel[3] = lerp(minMipmapLevel, maxMipmapLevel, factorVertexs.w);
@@ -149,7 +194,7 @@ HS_CONSTANT_DATA_OUTPUT TerrainConstantHS(InputPatch<VSOut, 4> ip, uint PatchID 
 	magnitudeEdges.w = clamp(distance(middlePointEdge3, eyePosition), minDistance, maxDistance);
 
 	float2 factorInside = 1 - saturate(((magnitude - minDistance) / diffDistance) * correctionInside);
-		float4 factorEdges = 1 - saturate(((magnitudeEdges - minDistance) / diffDistance) * correctionEdges);
+	float4 factorEdges = 1 - saturate(((magnitudeEdges - minDistance) / diffDistance) * correctionEdges);
 
 		/*Output.Edges[0] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.x))));
 		Output.Edges[1] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.y))));
@@ -159,13 +204,45 @@ HS_CONSTANT_DATA_OUTPUT TerrainConstantHS(InputPatch<VSOut, 4> ip, uint PatchID 
 		Output.Inside[0] = pow(2, round(lerp(minTessExp, maxTessExp, factorInside.x)));
 		Output.Inside[1] = pow(2, round(lerp(minTessExp, maxTessExp, factorInside.y)));*/
 
-		Output.Edges[0] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.x))));
+	Output.Edges[0] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.x))));
 	Output.Edges[1] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.y))));
 	Output.Edges[2] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.z))));
 	Output.Edges[3] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.w))));
 
 	Output.Inside[0] = pow(2, round(lerp(minTessExp, maxTessExp, factorInside.x)));
 	Output.Inside[1] = pow(2, round(lerp(minTessExp, maxTessExp, factorInside.y)));
+	///ADD KK///
+	//float averageFactor = (round(lerp(minTessExp, maxTessExp, (factorEdges.x))) + round(lerp(minTessExp, maxTessExp, (factorEdges.y))) + round(lerp(minTessExp, maxTessExp, (factorEdges.z))) + round(lerp(minTessExp, maxTessExp, (factorEdges.w))))/4;
+	//float averageFactor = round(lerp(minTessExp, maxTessExp, (factorEdges.x)));
+	float averageFactor = round(lerp(minTessExp, maxTessExp, factorInside.x)) ;
+	float4 color = float4(0, 0, 0, 0);
+	if (averageFactor == 6)
+	{
+		color = float4(0.862745, 0.078431, 0.235294, 1);
+	}
+	if (averageFactor == 5)
+	{
+		color = float4(0.78039, 0.08235, 0.521568, 1);
+	}
+	if (averageFactor == 4)
+	{
+		color = float4(1, 0, 1, 1);
+	}
+	if (averageFactor == 3)
+	{
+		color = float4(0.580392, 0, 0.827450, 1);
+	}
+	if (averageFactor == 2)
+	{
+		color = float4(0.482352, 0.407843, 0.933333, 1);
+	}
+	if (averageFactor < 2)
+	{
+		color = float4(0.415686, 0.352941, 0.80392156, 1);
+	}
+	
+	Output.color = color;
+	////////////
 
 	return Output;
 
@@ -191,6 +268,7 @@ struct DS_OUTPUT
 	float4 vPosition : SV_POSITION;
 	//float3 vNormal : NORMAL;
 	//float2 tex : TEXCOORD0;
+	float4 ds_color : COLOR;
 };
 
 [domain("quad")]
@@ -214,7 +292,7 @@ DS_OUTPUT dsTerrain(HS_CONSTANT_DATA_OUTPUT input, float2 UV:SV_DomainLocation, 
 	Output.vPosition = mul(float4(float3(WorldPosX, WorldPosY, WorldPosZ), 1), gWorldViewProj);
 	//Output.vNormal = normalize(normal * 2.0f - 1.0f);
 	//Output.tex = textCoord;
-
+	Output.ds_color = input.color;
 	return Output;
 
 
@@ -223,7 +301,8 @@ DS_OUTPUT dsTerrain(HS_CONSTANT_DATA_OUTPUT input, float2 UV:SV_DomainLocation, 
 float4 PS(DS_OUTPUT pin) : SV_Target
 {
 
-	return float4(0.5, 0.5, 0.5, 1);
+	/*return float4(0.5, 0.5, 0.5, 1);*/
+	return pin.ds_color;
 }
 
 technique11 ColorTech
