@@ -78,6 +78,12 @@ public://0705 add
 
 	//0709
 	bool mBeCorrect;
+	
+	//0714
+	void SobelTrans();
+	//0715
+	ID3D11ShaderResourceView* mSobelShaderResourceView;
+	ID3DX11EffectShaderResourceVariable* mSobelEffectVar;
 
 private:
 	ID3D11Buffer* mVB;
@@ -141,10 +147,10 @@ TerrainApp::TerrainApp(HINSTANCE hInstance)
 	XMStoreFloat4x4(&mSkullWorld, T);
 	///////////////
 
-	mHeightMapInfo.HeightMapFileName = L"Textures/terrain2.raw";
+	mHeightMapInfo.HeightMapFileName = L"Textures/terrain.raw";
 	mHeightMapInfo.HeightmapHeight = 2049;
 	mHeightMapInfo.HeightmapWidth = 2049;
-	mHeightMapInfo.HeightScale = 200.0f;
+	mHeightMapInfo.HeightScale = 1;
 	mHeightMapInfo.CellSpacing = 1.0f;
 	mNumPatchVertRows = ((mHeightMapInfo.HeightmapHeight - 1) / CellNumPerRowOfPatch) + 1;
 	mNumPatchVertCols = ((mHeightMapInfo.HeightmapWidth - 1) / CellNumPerRowOfPatch) + 1;
@@ -173,9 +179,12 @@ bool TerrainApp::Init()
 
 	LoadHeightMap();
 	BuildHeightMapSRV();
+	SobelTrans();
 	BuildGeometryBuffers();
 	BuildFX();
 	BuildVertexLayout();
+
+	
 	//0708
 	//EnumerateAdapter();
 
@@ -273,11 +282,12 @@ void TerrainApp::DrawScene()
 	mWidthHightMap->SetFloat(mHeightMapInfo.HeightmapWidth);
 	mHightScale->SetFloat(mHeightMapInfo.HeightScale);
 	mMinDistance->SetFloat(300);
-	mMaxDistance->SetFloat(1000);
+	mMaxDistance->SetFloat(1500);
 	mMinTesselltion->SetFloat(1);
 	mMaxTesselltion->SetFloat(6);
 	mSqrtNumPatch->SetInt(mNumPatchVertRows - 1);
 	mIsApplyCorrect->SetBool(mBeCorrect);
+	mSobelEffectVar->SetResource(mSobelShaderResourceView);
 
 
 	D3DX11_TECHNIQUE_DESC techDesc;
@@ -646,6 +656,10 @@ void TerrainApp::BuildFX()
 	mSqrtNumPatch = mFX->GetVariableByName("sqrtNumPatch")->AsScalar();
 	mTextSize = mFX->GetVariableByName("textSize")->AsScalar();
 
+	//0715 
+	
+	mSobelEffectVar = mFX->GetVariableByName("sobelMap")->AsShaderResource();
+
 }
 
 void TerrainApp::BuildVertexLayout()
@@ -685,8 +699,9 @@ void TerrainApp::LoadHeightMap()
 	mHeightmap.resize(mHeightMapInfo.HeightmapHeight * mHeightMapInfo.HeightmapWidth, 0);
 	for (UINT i = 0; i < mHeightMapInfo.HeightmapHeight * mHeightMapInfo.HeightmapWidth; ++i)
 	{
-		mHeightmap[i] = (in[i] / 255.0f);
+		mHeightmap[i] = (in[i] );
 	}
+	
 }
 
 void TerrainApp::BuildHeightMapSRV()
@@ -754,5 +769,161 @@ void TerrainApp::EnumerateAdapter()
 	}
 }
 
+void TerrainApp::SobelTrans()         //////0714///////
+{
+	int d, k, sum,sum2;
+	int x, y;
+	int temp[3][3] = { -1, -2, -1,
+		0, 0, 0,
+		1, 2, 1 };
+	int temp2[3][3] = { -1, 0, 1,
+		-2, 0, 2,
+		-1, 0, 1 };
+	////////////////first sobel//////////////////
+	std::vector<float> sobelimage(mHeightmap);
+	/*int aa = mHeightmap[0];
+	int bb = mHeightmap[1];
+	int cc = mHeightmap[2];
+	int dd = mHeightmap[2049];
+	int ee = mHeightmap[2051];
+	int ff = mHeightmap[4098];
+	int gg = mHeightmap[4099];
+	int hh = mHeightmap[4100];*/
 
+	float sqrtSum = 0.0;
+
+	for (k = 0; k < mHeightMapInfo.HeightmapHeight - 2; k++)
+	{
+		for (d = 0; d < mHeightMapInfo.HeightmapHeight - 2; d++)
+
+		{
+			sum = 0;
+			sum2 = 0;
+			for (x = 0; x < 3; x++)
+			{
+				for (y = 0; y < 3; y++)
+				{
+					
+					sum += mHeightmap[(k + x)*mHeightMapInfo.HeightmapHeight + d + y] * temp[x][y];
+					sum2 += mHeightmap[(k + x)*mHeightMapInfo.HeightmapHeight + d + y] * temp2[x][y];
+				}
+			}
+			
+			sqrtSum = sqrt(sum*sum + sum2*sum2);
+			sobelimage[(k + 1)*mHeightMapInfo.HeightmapHeight + d + 1] = sqrtSum;
+		}
+	}
+
+	for (int i = 0; i < mHeightMapInfo.HeightmapHeight; ++i)
+	{
+		sobelimage[i] = sobelimage[mHeightMapInfo.HeightmapHeight + i];
+		sobelimage[(mHeightMapInfo.HeightmapHeight - 1)*mHeightMapInfo.HeightmapHeight + i] = sobelimage[(mHeightMapInfo.HeightmapHeight - 2)*mHeightMapInfo.HeightmapHeight + i];
+		sobelimage[i*mHeightMapInfo.HeightmapHeight] = sobelimage[i*mHeightMapInfo.HeightmapHeight + 1 ];
+		sobelimage[i*mHeightMapInfo.HeightmapHeight + (mHeightMapInfo.HeightmapHeight - 1)] = sobelimage[i*mHeightMapInfo.HeightmapHeight + (mHeightMapInfo.HeightmapHeight - 2)];
+	}
+
+	sobelimage[0] = sobelimage[1];
+	sobelimage[2048] = sobelimage[2047];
+	//////////////////////////////////////////
+
+	/////////////second sobel/////////////
+
+	std::vector<float> secondSobel(sobelimage);
+
+	sqrtSum = 0.0;
+
+	for (k = 0; k < mHeightMapInfo.HeightmapHeight - 2; k++)
+	{
+		for (d = 0; d < mHeightMapInfo.HeightmapHeight - 2; d++)
+
+		{
+			sum = 0;
+			sum2 = 0;
+			for (x = 0; x < 3; x++)
+			{
+				for (y = 0; y < 3; y++)
+				{
+
+					sum += sobelimage[(k + x)*mHeightMapInfo.HeightmapHeight + d + y] * temp[x][y];
+					sum2 += sobelimage[(k + x)*mHeightMapInfo.HeightmapHeight + d + y] * temp2[x][y];
+				}
+			}
+
+			sqrtSum = sqrt(sum*sum + sum2*sum2);
+			secondSobel[(k + 1)*mHeightMapInfo.HeightmapHeight + d + 1] = sqrtSum;
+		}
+	}
+
+	for (int i = 0; i < mHeightMapInfo.HeightmapHeight; ++i)
+	{
+		secondSobel[i] = secondSobel[mHeightMapInfo.HeightmapHeight + i];
+		secondSobel[(mHeightMapInfo.HeightmapHeight - 1)*mHeightMapInfo.HeightmapHeight + i] = secondSobel[(mHeightMapInfo.HeightmapHeight - 2)*mHeightMapInfo.HeightmapHeight + i];
+		secondSobel[i*mHeightMapInfo.HeightmapHeight] = secondSobel[i*mHeightMapInfo.HeightmapHeight + 1];
+		secondSobel[i*mHeightMapInfo.HeightmapHeight + (mHeightMapInfo.HeightmapHeight - 1)] = secondSobel[i*mHeightMapInfo.HeightmapHeight + (mHeightMapInfo.HeightmapHeight - 2)];
+	}
+
+	secondSobel[0] = secondSobel[1];
+	secondSobel[2048] = secondSobel[2047];
+
+	//////////////////////////////////////
+
+	////////average per patch/////////////
+	float sumPerPatch = 0.0;
+	std::vector<float>averagePerPatch;
+	for (k = 0; k < ((mHeightMapInfo.HeightmapHeight - 1) / 64);++k)
+	{
+		for (d = 0; d < ((mHeightMapInfo.HeightmapHeight - 1) / 64);++d)
+		{
+			sumPerPatch = 0;
+			for (int i = 0; i < 64;++i)
+			{
+				for (int j = 0; j < 64; ++j)
+				{
+					sumPerPatch += secondSobel[(64 * k + i)*mHeightMapInfo.HeightmapHeight + (64 * d) + j];
+				}
+			}
+			sumPerPatch = sumPerPatch / (4096);
+			averagePerPatch.push_back(sumPerPatch);
+		}
+	}///////////////////////////0714//average is 1024 
+	/////////////////////////////////////
+	D3D11_TEXTURE2D_DESC texDesc;
+	ZeroMemory(&texDesc, sizeof(D3D11_TEXTURE2D_DESC));
+	texDesc.Width = 32;
+	texDesc.Height = 32;
+	texDesc.MipLevels = 1;   //mip on
+	texDesc.ArraySize = 1;
+	texDesc.Format = DXGI_FORMAT_R16_FLOAT;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.SampleDesc.Quality = 0;
+	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texDesc.CPUAccessFlags = 0;
+	texDesc.MiscFlags = 0;
+
+	std::vector<HALF> hmap(averagePerPatch.size());
+	std::transform(averagePerPatch.begin(), averagePerPatch.end(), hmap.begin(), XMConvertFloatToHalf);
+
+	D3D11_SUBRESOURCE_DATA data;
+	data.pSysMem = &hmap[0];
+	data.SysMemPitch = 32*sizeof(HALF);
+	data.SysMemSlicePitch = 0;
+
+	ID3D11Texture2D* hmapTex = 0;
+	HRESULT hrr = (md3dDevice->CreateTexture2D(&texDesc, &data, &hmapTex));
+
+	//HRESULT hr = D3DX11SaveTextureToFile(md3dImmediateContext, hmapTex, D3DX11_IFF_PNG, L"test.png");///TMD,return E_FAIL ,meaning this function someting wrong,so... need other lib,like DirectXTex...see msdn D3DX11SaveTextureToFile
+
+	////////0715///////////////
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+	srvDesc.Format = texDesc.Format;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = -1;
+	HR(md3dDevice->CreateShaderResourceView(hmapTex, &srvDesc, &mSobelShaderResourceView));
+
+	// SRV saves reference.
+	ReleaseCOM(hmapTex);
+
+}
 

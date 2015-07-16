@@ -23,6 +23,7 @@ float minTessExp;
 float maxTessExp;
 int   sqrtNumPatch;
 bool applyCorrection;
+Texture2D sobelMap;
 
 
 cbuffer cbPerObject
@@ -104,11 +105,57 @@ HS_CONSTANT_DATA_OUTPUT TerrainConstantHS(InputPatch<VSOut, 4> ip, uint PatchID 
 	HS_CONSTANT_DATA_OUTPUT Output;
 
 	float3 middlePoint = (ip[0].PosH + ip[1].PosH + ip[2].PosH + ip[3].PosH) / 4;
-	float3 middlePointEdge0 = (ip[0].PosH + ip[1].PosH) / 2;
-	float3 middlePointEdge1 = (ip[3].PosH + ip[0].PosH) / 2;
-	float3 middlePointEdge2 = (ip[2].PosH + ip[3].PosH) / 2;
-	float3 middlePointEdge3 = (ip[1].PosH + ip[2].PosH) / 2;
+		float3 middlePointEdge0 = (ip[0].PosH + ip[1].PosH) / 2;
+		float3 middlePointEdge1 = (ip[3].PosH + ip[0].PosH) / 2;
+		float3 middlePointEdge2 = (ip[2].PosH + ip[3].PosH) / 2;
+		float3 middlePointEdge3 = (ip[1].PosH + ip[2].PosH) / 2;
+		//0709///
+		////distance between true point with plane of the patch
+		/*float incrementIn4 = sizeTerrain / (sqrtNumPatch*4);
+		float2 q0Coord = float2((ip[0].PosH.x + ip[1].PosH.x + ip[2].PosH.x + ip[3].PosH.x) / 4, (ip[0].PosH.z + ip[1].PosH.z + ip[2].PosH.z + ip[3].PosH.z) / 4);
+		float2 q1Coord = float2(0.75*ip[0].PosH.x + 0.25*ip[1].PosH.x, 0.75*ip[0].PosH.z + 0.25*ip[3].PosH.z);
+		float2 q2Coord = float2(0.25*ip[0].PosH.x + 0.75*ip[1].PosH.x, 0.75*ip[1].PosH.z + 0.25*ip[2].PosH.z);
+		float2 q3Coord = float2(0.75*ip[3].PosH.x + 0.25*ip[2].PosH.x, 0.75*ip[3].PosH.z + 0.25*ip[0].PosH.z);
+		float2 q4Coord = float2(0.25*ip[3].PosH.x + 0.75*ip[2].PosH.x, 0.75*ip[2].PosH.z + 0.25*ip[1].PosH.z);
 
+		float planeHeitght0 = float(0.5*ip[0].PosH.y + 0.5*ip[2].PosH.y);
+		float planeHeitght1 = float(0.75*ip[0].PosH.y + 0.25*ip[2].PosH.y);
+		float planeHeitght4 = float(0.25*ip[0].PosH.y + 0.75*ip[2].PosH.y);
+		float planeHeitght2 = float(0.75*ip[1].PosH.y + 0.25*ip[3].PosH.y);
+		float planeHeitght3 = float(0.75*ip[3].PosH.y + 0.25*ip[1].PosH.y);
+
+		float height0 = terrainHeightMap.SampleLevel(linearSampler, q0Coord / sizeTerrain, 0).x * heightMultiplier;
+		float height1 = terrainHeightMap.SampleLevel(linearSampler, q1Coord / sizeTerrain, 0).x * heightMultiplier;
+		float height2 = terrainHeightMap.SampleLevel(linearSampler, q2Coord / sizeTerrain, 0).x * heightMultiplier;
+		float height3 = terrainHeightMap.SampleLevel(linearSampler, q3Coord / sizeTerrain, 0).x * heightMultiplier;
+		float height4 = terrainHeightMap.SampleLevel(linearSampler, q4Coord / sizeTerrain, 0).x * heightMultiplier;
+
+		float3 crossProductNormal = normalize(cross((ip[1].PosH - ip[0].PosH), (ip[3].PosH - ip[0].PosH)));
+
+		float dis0 = abs(dot(crossProductNormal, float3(0, height0 - planeHeitght0, 0)));
+		float dis1 = abs(dot(crossProductNormal, float3(0, height1 - planeHeitght1, 0)));
+		float dis2 = abs(dot(crossProductNormal, float3(0, height2 - planeHeitght2, 0)));
+		float dis3 = abs(dot(crossProductNormal, float3(0, height3 - planeHeitght3, 0)));
+		float dis4 = abs(dot(crossProductNormal, float3(0, height4 - planeHeitght4, 0)));
+
+		float variance = (dis0 + dis1 + dis2 + dis3 + dis4) / 5;
+
+		float varColor = variance / (incrementIn4 );*/
+
+		/////////
+
+		/////0710///
+		//float incrementIn2 = sizeTerrain / (sqrtNumPatch * 2);
+		/*float2 q1coord = float2(0.5*ip[0].PosH.x + 0.5*ip[3].PosH.x, 0.5*ip[0].PosH.z + 0.5*ip[3].PosH.z);
+		float2 q10coord = float2(ip[0].PosH.x + 0.25*(ip[0].PosH.x - ip[1].PosH.x), 0.75*ip[0].PosH.z + 0.25*ip[3].PosH.z);
+		float2 q11coord = float2(ip[0].PosH.x + 0.25*(-ip[0].PosH.x + ip[1].PosH.x), 0.75*ip[0].PosH.z + 0.25*ip[3].PosH.z);
+		float2 q12coord = float2(ip[0].PosH.x + 0.25*(-ip[0].PosH.x + ip[1].PosH.x), 0.25*ip[0].PosH.z + 0.75*ip[3].PosH.z);
+		float2 q13coord = float2(ip[0].PosH.x + 0.25*(ip[0].PosH.x - ip[1].PosH.x), 0.25*ip[0].PosH.z + 0.75*ip[3].PosH.z);
+
+		float q1PlaneHeight = float(0.5*ip[0].PosH.y + 0.5*ip[3].PosH.y);
+		float q10PlaneHeight = float(0.75*ip[0].PosH.y + 0.25*ip[2].PosH.y);*/
+
+	////////////
 	float2 correctionInside = float2(1, 1);
 	float4 correctionEdges = float4(1, 1, 1, 1);
 	float4 correctionVertexs = float4(1, 1, 1, 1);
@@ -194,7 +241,7 @@ HS_CONSTANT_DATA_OUTPUT TerrainConstantHS(InputPatch<VSOut, 4> ip, uint PatchID 
 	magnitudeEdges.w = clamp(distance(middlePointEdge3, eyePosition), minDistance, maxDistance);
 
 	float2 factorInside = 1 - saturate(((magnitude - minDistance) / diffDistance) * correctionInside);
-	float4 factorEdges = 1 - saturate(((magnitudeEdges - minDistance) / diffDistance) * correctionEdges);
+		float4 factorEdges = 1 - saturate(((magnitudeEdges - minDistance) / diffDistance) * correctionEdges);
 
 		/*Output.Edges[0] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.x))));
 		Output.Edges[1] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.y))));
@@ -204,43 +251,94 @@ HS_CONSTANT_DATA_OUTPUT TerrainConstantHS(InputPatch<VSOut, 4> ip, uint PatchID 
 		Output.Inside[0] = pow(2, round(lerp(minTessExp, maxTessExp, factorInside.x)));
 		Output.Inside[1] = pow(2, round(lerp(minTessExp, maxTessExp, factorInside.y)));*/
 
-	Output.Edges[0] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.x))));
-	Output.Edges[1] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.y))));
-	Output.Edges[2] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.z))));
-	Output.Edges[3] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.w))));
+	////////////0715//////////////sobel
+		//float2 samplecoordSobel = float2((ip[0].PosH.x, ip[0].PosH.z) / (sizeTerrain-1));
+		
+		float sobelPerPatch = sobelMap.SampleLevel(linearSampler, float2(ip[0].PosH.x, ip[0].PosH.z) / (sizeTerrain - 1), 0).x;
 
-	Output.Inside[0] = pow(2, round(lerp(minTessExp, maxTessExp, factorInside.x)));
-	Output.Inside[1] = pow(2, round(lerp(minTessExp, maxTessExp, factorInside.y)));
+	float3 point003 = ip[0].PosH + (ip[0].PosH - ip[3].PosH);
+		float3 point001 = ip[0].PosH + (ip[0].PosH - ip[1].PosH);
+
+		float sobelPoint003 = sobelMap.SampleLevel(linearSampler, float2(point003.x, point003.z) / (sizeTerrain - 1), 0).x;
+	float sobelPoint1 = sobelMap.SampleLevel(linearSampler, float2(ip[1].PosH.x, ip[1].PosH.z) / (sizeTerrain - 1), 0).x;
+	float sobelPoint3 = sobelMap.SampleLevel(linearSampler, float2(ip[3].PosH.x, ip[3].PosH.z) / (sizeTerrain - 1), 0).x;
+	float sobelPoint001 = sobelMap.SampleLevel(linearSampler, float2(point001.x, point001.z) / (sizeTerrain - 1), 0).x;
+
+	float4 edgeSobel = float4((sobelPoint003 + sobelPerPatch) / 2, (sobelPoint001 + sobelPerPatch) / 2, (sobelPoint3 + sobelPerPatch) / 2, (sobelPoint1 + sobelPerPatch) / 2);
+
+		float4 factorClampEdgeSobel = clamp(edgeSobel, float4(1, 1, 1, 1), float4(10, 10, 10, 10)) / 10;
+		float factorClampSobelPerPatch = clamp(sobelPerPatch, float(1), float(10)) / 10;
+
+		int addx = int(0);
+	int addy = int(0);
+	int addz = int(0);
+	int addw = int(0);
+	int addInside = int(0);
+	int factorAdd = int(1);
+	int factorViewRange = int(4);
+	float factorSobelRange = float(0.6);
+	if (round(lerp(minTessExp, maxTessExp, (factorEdges.x)))<factorViewRange && factorClampEdgeSobel.x>factorSobelRange)
+		{
+			addx = factorAdd;
+		}
+	if (round(lerp(minTessExp, maxTessExp, (factorEdges.y)))<factorViewRange && factorClampEdgeSobel.y>factorSobelRange)
+	{
+		addy = factorAdd;
+	}
+	if (round(lerp(minTessExp, maxTessExp, (factorEdges.z)))<factorViewRange && factorClampEdgeSobel.z>factorSobelRange)
+	{
+		addz = factorAdd;
+	}
+	if (round(lerp(minTessExp, maxTessExp, (factorEdges.w)))<factorViewRange && factorClampEdgeSobel.w>factorSobelRange)
+	{
+		addw = factorAdd;
+	}
+	if (round(lerp(minTessExp, maxTessExp, factorInside.x)) < factorViewRange && factorClampSobelPerPatch > factorSobelRange)
+	{
+		addInside = factorAdd;
+	}
+
+
+
+	/////////////////////////
+
+	Output.Edges[0] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.x)))+addx);
+	Output.Edges[1] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.y)))+addy);
+	Output.Edges[2] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.z)))+addz);
+	Output.Edges[3] = pow(2, round(lerp(minTessExp, maxTessExp, (factorEdges.w)))+addw);
+
+	Output.Inside[0] = pow(2, round(lerp(minTessExp, maxTessExp, factorInside.x)) + addInside);
+	Output.Inside[1] = pow(2, round(lerp(minTessExp, maxTessExp, factorInside.y)) + addInside);
 	///ADD KK///
 	//float averageFactor = (round(lerp(minTessExp, maxTessExp, (factorEdges.x))) + round(lerp(minTessExp, maxTessExp, (factorEdges.y))) + round(lerp(minTessExp, maxTessExp, (factorEdges.z))) + round(lerp(minTessExp, maxTessExp, (factorEdges.w))))/4;
 	//float averageFactor = round(lerp(minTessExp, maxTessExp, (factorEdges.x)));
-	float averageFactor = round(lerp(minTessExp, maxTessExp, factorInside.x)) ;
+	float averageFactor = round(lerp(minTessExp, maxTessExp, factorInside.x)) + addInside;
 	float4 color = float4(0, 0, 0, 0);
-	if (averageFactor == 6)
-	{
+		if (averageFactor == 6)
+		{
 		color = float4(0.862745, 0.078431, 0.235294, 1);
-	}
-	if (averageFactor == 5)
-	{
+		}
+		if (averageFactor == 5)
+		{
 		color = float4(0.78039, 0.08235, 0.521568, 1);
-	}
-	if (averageFactor == 4)
-	{
+		}
+		if (averageFactor == 4)
+		{
 		color = float4(1, 0, 1, 1);
-	}
-	if (averageFactor == 3)
-	{
+		}
+		if (averageFactor == 3)
+		{
 		color = float4(0.580392, 0, 0.827450, 1);
-	}
-	if (averageFactor == 2)
-	{
+		}
+		if (averageFactor == 2)
+		{
 		color = float4(0.482352, 0.407843, 0.933333, 1);
-	}
-	if (averageFactor < 2)
-	{
+		}
+		if (averageFactor < 2)
+		{
 		color = float4(0.415686, 0.352941, 0.80392156, 1);
-	}
-	
+		}
+		//color = float4(varColor, varColor, varColor, 1);
 	Output.color = color;
 	////////////
 
